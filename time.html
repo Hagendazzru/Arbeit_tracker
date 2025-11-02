@@ -41,7 +41,7 @@
     .kbd{border:1px solid var(--line);background:#0b1220;padding:2px 6px;border-radius:6px;font-size:12px}
     .help{font-size:13px;color:var(--muted)}
     .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
-    .badge{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);}
+    .badge{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);} 
     .list{display:flex;flex-direction:column;gap:8px}
     .item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0c1320}
     .item .name{font-weight:600}
@@ -467,6 +467,8 @@
 
     // prime audio on first user interaction
     document.addEventListener('click', ()=>{ try{ bell.play().then(()=>{ bell.pause(); bell.currentTime=0; }).catch(()=>{}); }catch(e){} }, { once:true });
+
+    // 즐겨찾기 토글
     document.addEventListener('click', (e)=>{
       const b = e.target.closest('button[data-fav]');
       if(!b) return;
@@ -478,88 +480,6 @@
       renderTimeline();
     });
 
-    function renderPanels(){
-      const now = new Date();
-      const { H, M, mabiMins } = getNow();
-      elNowReal.textContent = now.toLocaleString();
-      elNowMabi.textContent = fmtHM(H,M);
-
-      // Active list
-      elActiveList.innerHTML = '';
-      const activeItems = [];
-      schedules.forEach((npc, idx) => {
-        npc.windows.forEach(w => {
-          const s = parseHM(w.start); const e = parseHM(w.end);
-          if(!s||!e) return;
-          if(isActive(mabiMins, s.mins, e.mins)){
-            const leftMs = nextDeltaMs(mabiMins, e.mins);
-            activeItems.push({ npc, w, leftMs, idx });
-          }
-        });
-      });
-      activeItems.sort((a,b)=>a.leftMs - b.leftMs);
-      if(activeItems.length===0){
-        elActiveList.innerHTML = `<div class="item"><div>현재 진행중인 알바가 없습니다.</div><div class="muted">가까운 타임은 아래에서 확인하세요.</div></div>`;
-      } else {
-        for(const it of activeItems){
-          const div = document.createElement('div');
-          div.className = 'item';
-          div.innerHTML = `
-            <div>
-              <div class="name">${escapeHTML(it.npc.name)} <span class="label">@ ${escapeHTML(it.npc.place||'')}</span></div>
-              <div class="help mono">${it.w.start}–${it.w.end} · 종료까지 ${msToHuman(it.leftMs)}</div>
-              ${it.w.note?`<div class="help">${escapeHTML(it.w.note)}</div>`:''}
-            </div>
-            <div class="row">
-              <button class="ghost" data-alarm="nowEnd" data-idx="${it.idx}" data-start="${it.w.start}" data-end="${it.w.end}">종료 알람</button>
-            </div>
-          `;
-          elActiveList.appendChild(div);
-        }
-      }
-
-      // Upcoming list (soonest one per NPC)
-      const soonItems = [];
-      schedules.forEach((npc, idx) => {
-        let soon=null;
-        npc.windows.forEach(w => {
-          const s = parseHM(w.start); const e = parseHM(w.end);
-          if(!s||!e) return;
-          if(!isActive(mabiMins, s.mins, e.mins)){
-            const delta = nextDeltaMs(mabiMins, s.mins);
-            if(!soon || delta < soon.delta) soon = { npc, w, delta, idx };
-          }
-        });
-        if(soon) soonItems.push(soon);
-      });
-      soonItems.sort((a,b)=>a.delta-b.delta);
-      elUpcomingList.innerHTML = '';
-      if(soonItems.length===0){
-        elUpcomingList.innerHTML = `<div class="item"><div>예정된 알바 타임이 없습니다.</div></div>`;
-      } else {
-        for(const it of soonItems.slice(0,6)){
-          const div = document.createElement('div');
-          div.className = 'item';
-          div.innerHTML = `
-            <div>
-              <div class="name">${escapeHTML(it.npc.name)} <span class="label">@ ${escapeHTML(it.npc.place||'')}</span></div>
-              <div class="help mono">${it.w.start} 시작 · ${msToHuman(it.delta)} 후</div>
-              ${it.w.note?`<div class="help">${escapeHTML(it.w.note)}</div>`:''}
-            </div>
-            <div class="row">
-              <button class="ghost" data-alarm="nextStart" data-idx="${it.idx}" data-start="${it.w.start}">시작 알람</button>
-            </div>
-          `;
-          elUpcomingList.appendChild(div);
-        }
-      }
-
-      buildAllRows();
-      renderHours();
-      renderTimeline();
-      positionNowLines();
-    }
-
     // ===== Subscription (연속 알람) =====
     const timers = new Set();
     function subStoreKey(){ return 'mabi-subscriptions'; }
@@ -567,17 +487,30 @@
     function saveSubs(arr){ localStorage.setItem(subStoreKey(), JSON.stringify(arr)); }
     let subs = loadSubs(); // [{idx, kind:'start'|'end'}]
     const subTimers = new Map(); // key -> timeoutId
-    // ===== Subscription mode storage =====
+    function subKey(idx, kind){ return `${idx}:${kind}`; }
+    function hasSub(idx, kind){ return subs.some(s=>s.idx===idx && s.kind===kind); }
+    // 모드 저장 (다음 구독 시 시작/종료 중 무엇으로 들어갈지)
     function modeStoreKey(){ return 'mabi-sub-modes'; }
     function loadModes(){ try{ return JSON.parse(localStorage.getItem(modeStoreKey())||'{}'); }catch(e){ return {}; } }
     function saveModes(obj){ localStorage.setItem(modeStoreKey(), JSON.stringify(obj)); }
     let subModes = loadModes(); // { idx: 'start'|'end' }
     function getMode(idx){ return subModes[String(idx)] || 'start'; }
     function setMode(idx, mode){ subModes[String(idx)] = mode; saveModes(subModes); }
-    function subKey(idx, kind){ return `${idx}:${kind}`; }
-    function hasSub(idx, kind){ return subs.some(s=>s.idx===idx && s.kind===kind); }
-    function addSub(idx, kind){ if(hasSub(idx,kind)) return; subs.push({idx,kind}); saveSubs(subs); scheduleSub(idx,kind); renderSubs(); buildAllRows(); toast('연속 알람 구독됨'); }
-    function removeSub(idx, kind){ subs = subs.filter(s=>!(s.idx===idx && s.kind===kind)); saveSubs(subs); const k=subKey(idx,kind); const t=subTimers.get(k); if(t){ clearTimeout(t); subTimers.delete(k);} renderSubs(); buildAllRows(); toast('연속 알람 해제됨'); }
+
+    function addSub(idx, kind){
+      if(hasSub(idx,kind)) return;
+      subs.push({idx,kind}); saveSubs(subs);
+      setMode(idx, kind==='start'?'end':'start'); // 다음 눌렀을 때 반대 모드로 기대
+      scheduleSub(idx,kind);
+      renderSubs(); buildAllRows(); toast('연속 알람 구독됨');
+    }
+    function removeSub(idx, kind){
+      subs = subs.filter(s=>!(s.idx===idx && s.kind===kind));
+      saveSubs(subs);
+      const k=subKey(idx,kind); const t=subTimers.get(k);
+      if(t){ clearTimeout(t); subTimers.delete(k); }
+      renderSubs(); buildAllRows(); toast('연속 알람 해제됨');
+    }
     function scheduleSub(idx, kind){
       const npc = schedules[idx]; if(!npc) return;
       const { mabiMins } = getNow();
@@ -607,7 +540,7 @@
       });
     }
 
-    // Click handler: single toggle button (label: 구독 ↔ 해제)
+    // 표의 구독/해제 토글 버튼
     document.addEventListener('click', (e)=>{
       const btn = e.target.closest('button[data-subscribe-cycle]');
       if(!btn) return;
@@ -622,6 +555,17 @@
         if(hasS) removeSub(idx,'start');
         if(hasE) removeSub(idx,'end');
       }
+      buildAllRows();
+    });
+
+    // 아래 연속 알람 목록의 해제 버튼
+    document.addEventListener('click', (e)=>{
+      const btnUnsub = e.target.closest('button[data-unsub-idx]');
+      if(!btnUnsub) return;
+      const idx = Number(btnUnsub.getAttribute('data-unsub-idx'));
+      const kind = btnUnsub.getAttribute('data-unsub-kind');
+      removeSub(idx, kind);
+      renderSubs();
       buildAllRows();
     });
 
@@ -748,6 +692,90 @@
       clearTimeout(toastTimer); toastTimer = setTimeout(()=> toastDiv.style.display='none', 2500);
     }
 
+    // ===== Unified render (fix for renderPanels missing) =====
+    function renderPanels(){
+      const now = new Date();
+      const { H, M, mabiMins } = getNow();
+      elNowReal.textContent = now.toLocaleString();
+      elNowMabi.textContent = fmtHM(H,M);
+
+      // Active list
+      elActiveList.innerHTML = '';
+      const activeItems = [];
+      schedules.forEach((npc, idx) => {
+        npc.windows.forEach(w => {
+          const s = parseHM(w.start); const e = parseHM(w.end);
+          if(!s||!e) return;
+          if(isActive(mabiMins, s.mins, e.mins)){
+            const leftMs = nextDeltaMs(mabiMins, e.mins);
+            activeItems.push({ npc, w, leftMs, idx });
+          }
+        });
+      });
+      activeItems.sort((a,b)=>a.leftMs - b.leftMs);
+      if(activeItems.length===0){
+        elActiveList.innerHTML = `<div class="item"><div>현재 진행중인 알바가 없습니다.</div><div class="muted">가까운 타임은 아래에서 확인하세요.</div></div>`;
+      } else {
+        for(const it of activeItems){
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `
+            <div>
+              <div class="name">${escapeHTML(it.npc.name)} <span class="label">@ ${escapeHTML(it.npc.place||'')}</span></div>
+              <div class="help mono">${it.w.start}–${it.w.end} · 종료까지 ${msToHuman(it.leftMs)}</div>
+              ${it.w.note?`<div class="help">${escapeHTML(it.w.note)}</div>`:''}
+            </div>
+            <div class="row">
+              <button class="ghost" data-alarm="nowEnd" data-idx="${it.idx}" data-start="${it.w.start}" data-end="${it.w.end}">종료 알람</button>
+            </div>
+          `;
+          elActiveList.appendChild(div);
+        }
+      }
+
+      // Upcoming list (soonest one per NPC)
+      const soonItems = [];
+      schedules.forEach((npc, idx) => {
+        let soon=null;
+        npc.windows.forEach(w => {
+          const s = parseHM(w.start); const e = parseHM(w.end);
+          if(!s||!e) return;
+          if(!isActive(mabiMins, s.mins, e.mins)){
+            const delta = nextDeltaMs(mabiMins, s.mins);
+            if(!soon || delta < soon.delta) soon = { npc, w, delta, idx };
+          }
+        });
+        if(soon) soonItems.push(soon);
+      });
+      soonItems.sort((a,b)=>a.delta-b.delta);
+      elUpcomingList.innerHTML = '';
+      if(soonItems.length===0){
+        elUpcomingList.innerHTML = `<div class="item"><div>예정된 알바 타임이 없습니다.</div></div>`;
+      } else {
+        for(const it of soonItems.slice(0,6)){
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `
+            <div>
+              <div class="name">${escapeHTML(it.npc.name)} <span class="label">@ ${escapeHTML(it.npc.place||'')}</span></div>
+              <div class="help mono">${it.w.start} 시작 · ${msToHuman(it.delta)} 후</div>
+              ${it.w.note?`<div class="help">${escapeHTML(it.w.note)}</div>`:''}
+            </div>
+            <div class="row">
+              <button class="ghost" data-alarm="nextStart" data-idx="${it.idx}" data-start="${it.w.start}">시작 알람</button>
+            </div>
+          `;
+          elUpcomingList.appendChild(div);
+        }
+      }
+
+      buildAllRows();
+      renderHours();
+      renderTimeline();
+      positionNowLines();
+      renderSubs();
+    }
+
     // init JSON area
     elJsonArea.value = JSON.stringify(schedules, null, 2);
 
@@ -766,12 +794,25 @@
     // ===== Tiny smoke tests =====
     function runTests(){
       try {
+        // 기존 테스트 유지
         console.assert(parseHM('09:30').mins === 570, 'parseHM 09:30 -> 570');
         console.assert(isActive(600, 500, 700) === true, 'isActive simple in-range');
         console.assert(isActive(10, 1200, 60) === true, 'isActive wrap-around in-range');
         console.assert(isActive(100, 1200, 60) === false, 'isActive wrap-around out-of-range');
         const d = nextDeltaMs(100, 110); console.assert(d > 0 && d <= 10*1500, 'nextDeltaMs small delta');
-        console.log('✅ Smoke tests passed');
+
+        // 추가 테스트
+        console.assert(parseHM('7:05').mins === (7*60+5), 'parseHM single-digit hour');
+        // 경계: 반개구간 [from,to) — to에서 false
+        console.assert(isActive(540, 500, 540) === false, 'isActive boundary exclusive at to');
+        // 자정 랩어라운드 델타(23:50 -> 01:00 = 70분)
+        const d2 = nextDeltaMs(23*60+50, 1*60); console.assert(Math.round(d2/MS_PER_MABI_MIN) === 70, 'nextDeltaMs wrap-around 70m');
+        // DOM 생성 스모크
+        buildAllRows(); renderTimeline();
+        console.assert(document.querySelectorAll('#tblAll tbody tr').length > 0, 'table rows render');
+        console.assert(document.querySelectorAll('#tlBody tr').length >= 0, 'timeline renders');
+
+        console.log('✅ Smoke tests passed (+extra)');
       } catch(e) {
         console.error('❌ Smoke tests failed', e);
       }
