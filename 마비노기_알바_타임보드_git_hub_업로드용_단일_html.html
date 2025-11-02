@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>마비노기 알바 타임보드</title>
+  <meta name="description" content="현재 시간 기준 가능한 마비노기 아르바이트와 다음 타임을 알려주고, 알람도 설정할 수 있는 단일 HTML 페이지" />
+  <style>
+    :root{
+      --bg:#0b0f14;--card:#111826;--muted:#6b7280;--text:#e5e7eb;--brand:#60a5fa;--ok:#34d399;--warn:#f59e0b;--bad:#ef4444;--line:#1f2937;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    a{color:var(--brand);text-decoration:none}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .title{font-size:20px;font-weight:700}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+    .card h2{font-size:16px;margin:0 0 10px}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .row > *{flex:0 0 auto}
+    .grow{flex:1 1 auto}
+    input, select, textarea, button{background:#0f172a;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+    input[type="time"]{padding:8px 10px}
+    button{cursor:pointer}
+    button.primary{background:var(--brand);border-color:transparent;color:#0b1220}
+    button.ghost{background:transparent}
+    .pill{padding:.2rem .5rem;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--muted)}
+    .ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+    .table{width:100%;border-collapse:separate;border-spacing:0}
+    .table th,.table td{padding:10px 8px;border-bottom:1px dashed var(--line);vertical-align:top}
+    .table th{font-weight:600;text-align:left;color:#cbd5e1}
+    .nowrap{white-space:nowrap}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .label{font-size:12px;color:var(--muted)}
+    .kbd{border:1px solid var(--line);background:#0b1220;padding:2px 6px;border-radius:6px;font-size:12px}
+    .help{font-size:13px;color:var(--muted)}
+    .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+    .badge{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);}
+    .list{display:flex;flex-direction:column;gap:8px}
+    .item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0c1320}
+    .item .name{font-weight:600}
+    .hidden{display:none}
+    details summary{cursor:pointer;color:#cbd5e1}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+  .tl{overflow:auto}
+    .tl-legend{display:flex;gap:8px;align-items:center;margin:6px 0}
+    .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--line)}
+    .swatch.recruit{background:#0c2e21}
+    .swatch.report{background:#0d1b2a}
+    .tl-table{width:100%}
+    .track{position:relative;height:22px;min-width:960px;background-image:repeating-linear-gradient(to right, rgba(255,255,255,.04) 0 1px, transparent 1px 40px);border:1px solid var(--line);border-radius:8px}
+    .bar{position:absolute;height:100%;border-radius:6px;opacity:.9}
+    .bar.recruit{background:#34d399}
+    .bar.report{background:#60a5fa}
+    .tl-hours{position:relative;height:20px;min-width:960px;margin-bottom:6px}
+    .tl-hours .tick{position:absolute;top:0;transform:translateX(-50%);font-size:11px;color:#94a3b8}
+    .nowline{position:absolute;top:0;bottom:0;width:2px;background:var(--warn);opacity:.95;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="row">
+        <div class="title">🧭 마비노기 알바 타임보드</div>
+        <span class="chip" id="statusChip">대기중</span>
+      </div>
+      <div class="chips">
+        <span class="chip">단일 HTML · GitHub 업로드 OK</span>
+        <span class="chip">알람 지원 (브라우저/소리)</span>
+        <span class="chip">로컬 저장</span>
+        <span class="chip">KR 표준 기본값</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- 좌측: 지금 가능한 알바 / 다음 타임 -->
+      <section class="card">
+        <h2>지금 가능한 알바</h2>
+        <div class="row" style="margin-bottom:8px">
+          <div class="grow">
+            <div class="help">실시간 동기화된 <strong>마비 시간</strong>과 연결된 알바 가능 상태를 보여줍니다.</div>
+            <div class="help">현재 시간 <span id="nowReal" class="mono"></span> · 마비 시간 <span id="nowMabi" class="mono"></span></div>
+          </div>
+          <div class="row">
+            <label class="row" title="브라우저 알림 허용"><input type="checkbox" id="chkNotify"> 알림</label>
+            <label class="row" title="효과음 재생"><input type="checkbox" id="chkSound" checked> 소리</label>
+          </div>
+        </div>
+
+        <div id="activeList" class="list" aria-live="polite"></div>
+
+        <h2 style="margin-top:16px">다음 알바 타임</h2>
+        <div id="upcomingList" class="list"></div>
+      </section>
+
+      <!-- 우측: 시계 동기화 & 프리셋 & 스케줄 편집 -->
+      <aside class="card">
+        <h2>마비 시계 동기화</h2>
+        <div class="help">마비 하루 = <strong>36분</strong>, 1시간 = <strong>90초</strong>. 현재 게임 내 시계에 맞춰 동기화하세요.</div>
+        <div class="row" style="margin:8px 0">
+          <label>현재 마비 시간 입력</label>
+          <input type="time" id="syncTime" step="60" class="mono"/>
+          <button class="primary" id="btnSync">동기화</button>
+          <button id="btnReset">리셋</button>
+        </div>
+        <div class="row" style="margin:8px 0">
+          <select id="presetSelect">
+            <option value="kr">KR 표준 스케줄(요약)</option>
+            <option value="sample">예시: 티르 코네일 상점들</option>
+            <option value="empty">빈 스케줄</option>
+          </select>
+          <button id="btnPreset">적용</button>
+        </div>
+
+        <details style="margin-top:8px">
+          <summary>스케줄 JSON 편집</summary>
+          <div class="help" style="margin:6px 0">형식: [{"name":"NPC","place":"지역","windows":[{"start":"HH:MM","end":"HH:MM","note":"옵션"}]}]</div>
+          <textarea id="jsonArea" rows="12" style="width:100%;font-family:ui-monospace,monospace"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" id="btnSaveJson">저장</button>
+            <button id="btnCopyJson">복사</button>
+            <span class="help">브라우저 <span class="kbd">localStorage</span>에 저장됩니다.</span>
+          </div>
+        </details>
+      </aside>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <h2>전체 스케줄</h2>
+      <table class="table" id="tblAll">
+        <thead>
+          <tr>
+            <th>NPC</th>
+            <th>지역</th>
+            <th>시간대 (마비 시간)</th>
+            <th class="nowrap">상태</th>
+            <th class="nowrap">알람</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2>타임라인 뷰 (간트)</h2>
+      <div class="row" style="margin-bottom:8px">
+        <label class="row"><input type="checkbox" id="favOnly"> 내가 지정한 알바만</label>
+        <input id="filterText" placeholder="NPC/지역 검색" />
+        <span class="tl-legend">
+          <span class="swatch recruit"></span><span class="label">모집</span>
+          <span class="swatch report" style="margin-left:8px"></span><span class="label">보고</span>
+        </span>
+      </div>
+      <div class="tl">
+        <div id="tlHours" class="tl-hours"></div>
+        <table class="table tl-table">
+          <thead>
+            <tr><th style="width:220px">NPC</th><th style="width:120px">지역</th><th style="width:80px">즐겨찾기</th><th>시간대</th></tr>
+          </thead>
+          <tbody id="tlBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footer">
+      ⓘ 이 페이지는 공식 데이터가 아닌 <strong>사용자 편집 가능</strong> 스케줄을 기반으로 동작합니다. 서버/채널/이벤트에 따라 실제 시간은 다를 수 있어요.
+    </p>
+  </div>
+
+  <audio id="bell" preload="auto">
+    <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQAAAC0ATm9pc2UgbWFkZSBieSBha2FzYWthAAAAAAACAAACcQBQAAAB//tQxAADBcQAAAgAAAACAAACcQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" type="audio/mpeg"/>
+  </audio>
+
+  <script>
+  ;(() => {
+    // ===== Core time math =====
+    // 1 마비 분 = 1500 ms, 1 마비 시간 = 90,000 ms, 1 마비 일 = 2,160,000 ms (36분)
+    const MS_PER_MABI_MIN = 1500;
+    const MS_PER_MABI_HOUR = 60 * MS_PER_MABI_MIN; // 90,000
+    const MS_PER_MABI_DAY = 24 * MS_PER_MABI_HOUR; // 2,160,000
+
+    // 동기화 오프셋: now -> target Mabi HH:MM 으로 맞추는 실수용 오프셋(ms)
+    let syncOffset = loadOffset(); // realNowMs - mabiMs(now)
+
+    function loadOffset(){
+      const v = localStorage.getItem('mabi-sync-offset');
+      return v ? Number(v) : 0; // 0이면 임의 기준
+    }
+    function saveOffset(v){
+      localStorage.setItem('mabi-sync-offset', String(v));
+    }
+
+    // 현재 마비 시간을 DateLike로 반환 (HH:MM)
+    function getNow(){
+      const now = Date.now();
+      // mabiElapsedMs 는 동기화된 기준으로 계산
+      const mabiElapsedMs = (now - syncOffset) % MS_PER_MABI_DAY;
+      const mabiMins = Math.floor(mabiElapsedMs / MS_PER_MABI_MIN);
+      const H = Math.floor(mabiMins / 60);
+      const M = mabiMins % 60;
+      return { now, H, M, mabiMins, mabiElapsedMs };
+    }
+
+    function fmtHM(H, M){
+      const pad = n => String(n).padStart(2,'0');
+      return `${pad(H)}:${pad(M)}`;
+    }
+    function parseHM(s){
+      const m = String(s||'').match(/^(\d{1,2}):(\d{2})$/);
+      if(!m) return null;
+      const H = Math.min(23, Math.max(0, parseInt(m[1],10)));
+      const M = Math.min(59, Math.max(0, parseInt(m[2],10)));
+      return {H,M, mins: H*60+M};
+    }
+
+    // ===== Schedules =====
+    const defaultData = [
+      // === KR 서버 표준 스케줄 (요약) ===
+      // 각 항목은 모집/보고 단계로 분리했습니다. (모집 구간 끝 → 보고 시작)
+      // --- 티르 코네일 ---
+      { name: "딜리스(힐러)", place: "티르 코네일", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
+      { name: "데이안(일반)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "말콤(잡화점)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "피르아스(여관)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "퍼거스(대장간)", place: "티르 코네일", windows: [ { start: "12:00", end: "13:00", note: "모집" }, { start: "13:00", end: "19:00", note: "보고" } ] },
+      { name: "케이틴(식료품점)", place: "티르 코네일", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+      { name: "엔델리온(성당)", place: "티르 코네일", windows: [ { start: "12:00", end: "16:00", note: "모집" }, { start: "16:00", end: "21:00", note: "보고" } ] },
+
+      // --- 던바튼 ---
+      { name: "마누스(힐러)", place: "던바튼", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
+      { name: "에반(모험가)", place: "던바튼", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "16:00", note: "보고" } ] },
+      { name: "발터(잡화점)", place: "던바튼", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "시몬(의류점)", place: "던바튼", windows: [ { start: "07:00", end: "12:00", note: "모집" }, { start: "12:00", end: "19:00", note: "보고" } ] },
+      { name: "스튜어트(도서관)", place: "던바튼", windows: [ { start: "09:00", end: "11:00", note: "모집" }, { start: "11:00", end: "19:00", note: "보고" } ] },
+      { name: "글리니스(식료품점)", place: "던바튼", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+      { name: "크리스텔(성당)", place: "던바튼", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+      { name: "아이라(서점)", place: "던바튼", windows: [ { start: "13:00", end: "15:00", note: "모집" }, { start: "15:00", end: "20:00", note: "보고" } ] },
+      { name: "네리스(무기)", place: "던바튼", windows: [ { start: "15:00", end: "17:00", note: "모집" }, { start: "17:00", end: "22:00", note: "보고" } ] },
+
+      // --- 카브 항구 ---
+      { name: "아스콘(등대)", place: "카브 항구", windows: [ { start: "16:00", end: "19:00", note: "모집" }, { start: "19:00", end: "22:00", note: "보고" } ] },
+
+      // --- 반호르 ---
+      { name: "아이데른(대장간)", place: "반호르", windows: [ { start: "07:00", end: "12:00", note: "모집" }, { start: "12:00", end: "19:00", note: "보고" } ] },
+      { name: "숀(채굴장)", place: "반호르", windows: [ { start: "10:00", end: "15:00", note: "모집" }, { start: "15:00", end: "23:00", note: "보고" } ] },
+      { name: "에일렌(대장간)", place: "반호르", windows: [ { start: "12:00", end: "13:00", note: "모집" }, { start: "13:00", end: "19:00", note: "보고" } ] },
+      { name: "컴건(성당)", place: "반호르", windows: [ { start: "12:00", end: "16:00", note: "모집" }, { start: "16:00", end: "21:00", note: "보고" } ] },
+
+      // --- 이멘 마하 ---
+      { name: "아그네스(힐러)", place: "이멘 마하", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
+      { name: "갈빈(잡화점)", place: "이멘 마하", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "엘레노아(의류점)", place: "이멘 마하", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "레리(인형공방)", place: "이멘 마하", windows: [ { start: "07:00", end: "16:00", note: "모집" }, { start: "16:00", end: "19:00", note: "보고" } ] },
+      { name: "델(꽃가게)", place: "이멘 마하", windows: [ { start: "08:00", end: "10:00", note: "모집" }, { start: "10:00", end: "16:00", note: "보고" } ] },
+      { name: "네일(음악상점)", place: "이멘 마하", windows: [ { start: "10:00", end: "12:00", note: "모집" }, { start: "12:00", end: "15:00", note: "보고" } ] },
+      { name: "프레이저(식료품점)", place: "이멘 마하", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+      { name: "제임스(성당)", place: "이멘 마하", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+      { name: "오슬라(무기점)", place: "이멘 마하", windows: [ { start: "15:00", end: "17:00", note: "모집" }, { start: "17:00", end: "22:00", note: "보고" } ] },
+
+      // --- 탈틴 ---
+      { name: "피에릭(잡화점)", place: "탈틴", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "브렌다(의류점)", place: "탈틴", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
+      { name: "아이바(연금술사의 집)", place: "탈틴", windows: [ { start: "10:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+      { name: "콜헨(성당)", place: "탈틴", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
+
+      // --- 타라 ---
+      { name: "한스(화가)", place: "타라", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "16:00", note: "보고" } ] },
+      { name: "키이스(은행)", place: "타라", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "23:00", note: "보고" } ] },
+      { name: "코렌틴(법황청)", place: "타라", windows: [ { start: "09:00", end: "14:00", note: "모집" }, { start: "14:00", end: "20:00", note: "보고" } ] },
+      { name: "리리스(마창대회장)", place: "타라", windows: [ { start: "10:00", end: "15:00", note: "모집" }, { start: "15:00", end: "21:00", note: "보고" } ] }
+    ];
+
+    const presets = {
+      kr: structuredClone(defaultData),
+      sample: [
+        { name: "딜리스(힐러)", place: "티르 코네일", windows: [ { start: "08:00", end: "12:00", note: "예시: 치료부" }, { start: "18:00", end: "21:00", note: "예시: 보충" } ] },
+        { name: "말콤(잡화점)", place: "티르 코네일", windows: [ { start: "09:00", end: "11:00", note: "예시" }, { start: "15:00", end: "17:30", note: "예시" } ] },
+        { name: "카이틴(식당)", place: "티르 코네일", windows: [ { start: "12:00", end: "14:00", note: "예시: 주방" }, { start: "20:00", end: "23:00", note: "예시" } ] }
+      ],
+      empty: []
+    };
+
+    function loadSchedules(){
+      try {
+        const raw = localStorage.getItem('mabi-parttime-schedules');
+        if(!raw) return structuredClone(defaultData);
+        const json = JSON.parse(raw);
+        if(!Array.isArray(json)) throw new Error('bad json');
+        return json;
+      } catch(e){
+        console.warn('스케줄 로딩 실패', e);
+        return structuredClone(defaultData);
+      }
+    }
+    function saveSchedules(arr){
+      localStorage.setItem('mabi-parttime-schedules', JSON.stringify(arr));
+    }
+
+    let schedules = loadSchedules();
+
+    // ===== UI refs =====
+    const elNowReal = document.getElementById('nowReal');
+    const elNowMabi = document.getElementById('nowMabi');
+    const elActiveList = document.getElementById('activeList');
+    const elUpcomingList = document.getElementById('upcomingList');
+    const elStatusChip = document.getElementById('statusChip');
+    const elSyncTime = document.getElementById('syncTime');
+    const elBtnSync = document.getElementById('btnSync');
+    const elBtnReset = document.getElementById('btnReset');
+    const elPreset = document.getElementById('presetSelect');
+    const elBtnPreset = document.getElementById('btnPreset');
+    const elJsonArea = document.getElementById('jsonArea');
+    const elBtnSaveJson = document.getElementById('btnSaveJson');
+    const elBtnCopyJson = document.getElementById('btnCopyJson');
+    const elTblAll = document.querySelector('#tblAll tbody');
+    const chkNotify = document.getElementById('chkNotify');
+    const chkSound = document.getElementById('chkSound');
+    const bell = document.getElementById('bell');
+    const elTlBody = document.getElementById('tlBody');
+    const elTlHours = document.getElementById('tlHours');
+    const elFavOnly = document.getElementById('favOnly');
+    const elFilterText = document.getElementById('filterText');
+
+    // ===== Notifications =====
+    chkNotify.addEventListener('change', async () => {
+      if(chkNotify.checked && 'Notification' in window){
+        if(Notification.permission === 'default'){
+          try{ await Notification.requestPermission(); }catch{}
+        }
+      }
+    });
+
+    function notify(title, body){
+      let shown=false;
+      if(chkNotify && chkNotify.checked && 'Notification' in window){
+        if(Notification.permission === 'default'){
+          try{ Notification.requestPermission(); }catch{}
+        }
+        if(Notification.permission === 'granted'){
+          try{ new Notification(title, { body }); shown=true; }catch{}
+        }
+      }
+      if(chkSound && chkSound.checked){ try{ bell.currentTime = 0; bell.play(); }catch{} }
+      if(!shown){ toast(`${title} · ${body||''}`.trim()); }
+    }
+
+    // ===== Active / Upcoming calculation =====
+    function isActive(nowMins, fromMins, toMins){
+      // [from, to) 범위, 자정 걸침 처리
+      if(fromMins <= toMins) return nowMins >= fromMins && nowMins < toMins;
+      return (nowMins >= fromMins) || (nowMins < toMins);
+    }
+
+    function nextDeltaMs(nowMins, targetMins){
+      let deltaMabiMins = (targetMins - nowMins);
+      while(deltaMabiMins <= 0) deltaMabiMins += 24*60;
+      return deltaMabiMins * MS_PER_MABI_MIN; // real ms
+    }
+
+    function buildAllRows(){
+      elTblAll.innerHTML = '';
+      const { mabiMins } = getNow();
+      schedules.forEach((npc, idx) => {
+        const activeWindows = [];
+        const upcoming = [];
+        npc.windows.forEach(w => {
+          const s = parseHM(w.start); const e = parseHM(w.end);
+          if(!s||!e) return;
+          const act = isActive(mabiMins, s.mins, e.mins);
+          if(act) activeWindows.push(w);
+          else upcoming.push({w, delta: nextDeltaMs(mabiMins, s.mins)});
+        });
+        upcoming.sort((a,b)=>a.delta-b.delta);
+        const soon = upcoming[0];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><div class="name">${escapeHTML(npc.name)}</div></td>
+          <td>${escapeHTML(npc.place||'')}</td>
+          <td>${npc.windows.map(w=>`<span class="mono">${w.start}–${w.end}</span>${w.note?` <span class="label">(${escapeHTML(w.note)})</span>`:''}`).join('<br>')}</td>
+          <td class="nowrap">${activeWindows.length?'<span class="badge" style="border-color:transparent;background:#0c2e21;color:#34d399">진행중</span>': soon? `<span class="badge">${msToHuman(soon.delta)} 후</span>` : '<span class="badge">—</span>'}</td>
+          <td class="nowrap">
+            ${activeWindows.length? '<button class="ghost" data-alarm="now" data-idx="'+idx+'">종료 알람</button>' : soon? '<button class="ghost" data-alarm="next" data-idx="'+idx+'">시작 알람</button>' : ''}
+          </td>
+        `;
+        elTblAll.appendChild(tr);
+      });
+    }
+
+    // ===== Favorites & Timeline =====
+    const TL_WIDTH = 960; // px
+    const SCALE = TL_WIDTH / (24*60);
+    function favKey(npc){ return `${npc.name}|${npc.place||''}`; }
+    function loadFavs(){ try{ return JSON.parse(localStorage.getItem('mabi-favs')||'[]'); }catch{ return []; } }
+    function saveFavs(arr){ localStorage.setItem('mabi-favs', JSON.stringify(arr)); }
+    let favs = loadFavs();
+
+    function renderHours(){
+      elTlHours.innerHTML = '';
+      for(let h=0; h<24; h++){
+        const d=document.createElement('div');
+        d.className='tick'; d.style.left = (h*60*SCALE)+'px'; d.textContent = String(h).padStart(2,'0');
+        elTlHours.appendChild(d);
+      }
+      // ensure now line in header
+      let nl = elTlHours.querySelector('.nowline');
+      if(!nl){ nl = document.createElement('div'); nl.className='nowline'; elTlHours.appendChild(nl); }
+      elTlHours.style.backgroundImage = 'repeating-linear-gradient(to right, rgba(255,255,255,.04) 0 1px, transparent 1px 40px)';
+      elTlHours.style.border='1px solid var(--line)'; elTlHours.style.borderRadius='8px';
+    }
+
+    function ensureTrackNowLines(){
+      const tracks = document.querySelectorAll('.track');
+      tracks.forEach(t=>{
+        if(!t.querySelector('.nowline')){
+          const n=document.createElement('div'); n.className='nowline'; t.appendChild(n);
+        }
+      });
+    }
+
+    function positionNowLines(){
+      const { mabiMins } = getNow();
+      const left = (mabiMins * SCALE) + 'px';
+      const headers = elTlHours.querySelectorAll('.nowline');
+      headers.forEach(n=>{ n.style.left = left; });
+      const lines = document.querySelectorAll('.track .nowline');
+      lines.forEach(n=>{ n.style.left = left; });
+    }
+
+    function renderTimeline(){
+      elTlBody.innerHTML = '';
+      const q = (elFilterText?.value||'').trim().toLowerCase();
+      const onlyFav = !!(elFavOnly && elFavOnly.checked);
+      const rows = schedules.filter(npc => {
+        const matchText = !q || npc.name.toLowerCase().includes(q) || (npc.place||'').toLowerCase().includes(q);
+        const matchFav = !onlyFav || favs.includes(favKey(npc));
+        return matchText && matchFav;
+      });
+      const { mabiMins } = getNow();
+      rows.forEach((npc, idx) => {
+        const tr=document.createElement('tr');
+        const favOn = favs.includes(favKey(npc));
+        const star = favOn ? '★' : '☆';
+        const tdTrack = document.createElement('td');
+        tdTrack.colSpan=1; tdTrack.innerHTML = `<div class=\"track\" data-track=\"1\"></div>`;
+        tr.innerHTML = `<td><div class=\"name\">${escapeHTML(npc.name)}</div></td>
+                        <td>${escapeHTML(npc.place||'')}</td>
+                        <td class=\"nowrap\"><button class=\"ghost\" data-fav=\"${escapeHTML(favKey(npc))}\">${star} 즐겨찾기</button></td>`;
+        tr.appendChild(tdTrack);
+        elTlBody.appendChild(tr);
+        const track = tdTrack.querySelector('.track');
+        track.style.width = TL_WIDTH+'px';
+        npc.windows.forEach(w=>{
+          const s=parseHM(w.start); const e=parseHM(w.end); if(!s||!e) return;
+          let start=s.mins, end=e.mins; if(end<start) end+=24*60; // wrap
+          const left = start*SCALE; const width=(end-start)*SCALE;
+          const bar=document.createElement('div');
+          const active=isActive(mabiMins, s.mins, e.mins);
+          bar.className = 'bar ' + (w.note&&w.note.includes('모집')? 'recruit':'report');
+          bar.style.left = left+'px'; bar.style.width = Math.max(2,width)+'px';
+          bar.title = `${w.start}–${w.end} ${w.note||''}` + (active? ' · 진행중':'');
+          track.appendChild(bar);
+        });
+      });
+      // ensure per-track now lines and position them
+      ensureTrackNowLines();
+      positionNowLines();
+    }
+
+    if(elFavOnly) elFavOnly.addEventListener('change', renderTimeline);
+    if(elFilterText) elFilterText.addEventListener('input', ()=>{ renderTimeline(); });
+
+    // prime audio on first user interaction
+    document.addEventListener('click', ()=>{ try{ bell.play().then(()=>{ bell.pause(); bell.currentTime=0; }).catch(()=>{}); }catch{} }, { once:true });
+    document.addEventListener('click', (e)=>{
+      const b = e.target.closest('button[data-fav]');
+      if(!b) return;
+      const key = b.getAttribute('data-fav');
+      if(!key) return;
+      const i = favs.indexOf(key);
+      if(i>=0) favs.splice(i,1); else favs.push(key);
+      saveFavs(favs);
+      renderTimeline();
+    });
+
+    function renderPanels(){
+      const now = new Date();
+      const { H, M, mabiMins } = getNow();
+      elNowReal.textContent = now.toLocaleString();
+      elNowMabi.textContent = fmtHM(H,M);
+
+      // Active list
+      elActiveList.innerHTML = '';
+      const activeItems = [];
+      schedules.forEach((npc, idx) => {
+        npc.windows.forEach(w => {
+          const s = parseHM(w.start); const e = parseHM(w.end);
+          if(!s||!e) return;
+          if(isActive(mabiMins, s.mins, e.mins)){
+            const leftMs = nextDeltaMs(mabiMins, e.mins);
+            activeItems.push({ npc, w, leftMs, idx });
+          }
+        });
+      });
+      activeItems.sort((a,b)=>a.leftMs - b.leftMs);
+      if(activeItems.length===0){
+        elActiveList.innerHTML = `<div class="item"><div>현재 진행중인 알바가 없습니다.</div><div class="muted">가까운 타임은 아래에서 확인하세요.</div></div>`;
+      } else {
+        for(const it of activeItems){
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `
+            <div>
+              <div class="name">${escapeHTML(it.npc.name)} <span class="label">@ ${escapeHTML(it.npc.place||'')}</span></div>
+              <div class="help mono">${it.w.start}–${it.w.end} · 종료까지 ${msToHuman(it.leftMs)}</div>
+              ${it.w.note?`<div class="help">${escapeHTML(it.w.note)}</div>`:''}
+            </div>
+            <div class="row">
+              <button class="ghost" data-alarm="nowEnd" data-idx="${it.idx}" data-start="${it.w.start}" data-end="${it.w.end}">종료 알람</button>
+            </div>
+          `;
+          elActiveList.appendChild(div);
+        }
+      }
+
+      // Upcoming list (soonest one per NPC)
+      const soonItems = [];
+      schedules.forEach((npc, idx) => {
+        let soon=null;
+        npc.windows.forEach(w => {
+          const s = parseHM(w.start); const e = parseHM(w.end);
+          if(!s||!e) return;
+          if(!isActive(mabiMins, s.mins, e.mins)){
+            const delta = nextDeltaMs(mabiMins, s.mins);
+            if(!soon || delta < soon.delta) soon = { npc, w, delta, idx };
+          }
+        });
+        if(soon) soonItems.push(soon);
+      });
+      soonItems.sort((a,b)=>a.delta-b.delta);
+      elUpcomingList.innerHTML = '';
+      if(soonItems.length===0){
+        elUpcomingList.innerHTML = `<div class="item"><div>예정된 알바 타임이 없습니다.</div></div>`;
+      } else {
+        for(const it of soonItems.slice(0,6)){
+          const div = document.createElement('div');
+          div.className = 'item';
+          div.innerHTML = `
+            <div>
+              <div class="name">${escapeHTML(it.npc.name)} <span class="label">@ ${escapeHTML(it.npc.place||'')}</span></div>
+              <div class="help mono">${it.w.start} 시작 · ${msToHuman(it.delta)} 후</div>
+              ${it.w.note?`<div class="help">${escapeHTML(it.w.note)}</div>`:''}
+            </div>
+            <div class="row">
+              <button class="ghost" data-alarm="nextStart" data-idx="${it.idx}" data-start="${it.w.start}">시작 알람</button>
+            </div>
+          `;
+          elUpcomingList.appendChild(div);
+        }
+      }
+
+      buildAllRows();
+      renderHours();
+      renderTimeline();
+      positionNowLines();
+    }
+
+    // ===== Alarms =====
+    const timers = new Set();
+    function clearTimers(){ for(const t of timers){ clearTimeout(t); timers.delete(t);} }
+
+    function scheduleAlarm(kind, npcIdx, start, end){
+      const { mabiMins } = getNow();
+      const npc = schedules[npcIdx];
+      const s = parseHM(start); const e = end? parseHM(end): null;
+      let targetMs = 0; let label='';
+      if(kind==='nextStart'){
+        targetMs = nextDeltaMs(mabiMins, s.mins);
+        label = `${npc.name} 알바 시작 (${start})`;
+      } else if(kind==='nowEnd'){
+        targetMs = nextDeltaMs(mabiMins, e.mins);
+        label = `${npc.name} 알바 종료 (${end})`;
+      } else if(kind==='next'){
+        targetMs = nextDeltaMs(mabiMins, s.mins);
+        label = `${npc.name} 알바 시작 (${start})`;
+      } else if(kind==='now'){
+        targetMs = nextDeltaMs(mabiMins, e.mins);
+        label = `${npc.name} 알바 종료 (${end})`;
+      }
+      const realMs = Math.max(0, Math.floor(targetMs));
+      const t = setTimeout(()=>{
+        notify('⏰ 알람', label);
+      }, realMs);
+      timers.add(t);
+      toast(`알람 설정됨 · ${msToHuman(realMs)} 후: ${label}`);
+    }
+
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button');
+      if(!btn) return;
+      if(btn.dataset.alarm){
+        const kind = btn.dataset.alarm;
+        const idx = Number(btn.dataset.idx);
+        const start = btn.dataset.start || firstStartOf(idx);
+        const end = btn.dataset.end || firstEndOf(idx);
+        scheduleAlarm(kind, idx, start, end);
+      }
+    });
+
+    function firstStartOf(idx){
+      const w = schedules[idx]?.windows?.[0];
+      return w? w.start : '00:00';
+    }
+    function firstEndOf(idx){
+      const w = schedules[idx]?.windows?.[0];
+      return w? w.end : '00:00';
+    }
+
+    // ===== Sync & Presets & JSON =====
+    elBtnSync && elBtnSync.addEventListener('click', ()=>{
+      const v = parseHM(elSyncTime.value);
+      if(!v){ toast('HH:MM 형태로 입력하세요.'); return; }
+      const now = Date.now();
+      // now - offset -> mabiElapsedMs ≡ v.mins
+      // (now - offset) % MS_PER_MABI_DAY = v.mins * 1500
+      // offset = now - (v.mins*1500) (mod day)
+      const desired = v.mins * MS_PER_MABI_MIN;
+      // 현재 remainder
+      const remainder = (now - syncOffset) % MS_PER_MABI_DAY;
+      const delta = remainder - desired; // 우리가 빼야할 오차
+      syncOffset = syncOffset + delta; // 보정
+      saveOffset(syncOffset);
+      toast('동기화되었습니다.');
+      renderPanels();
+    });
+
+    elBtnReset && elBtnReset.addEventListener('click', ()=>{
+      syncOffset = 0; saveOffset(0);
+      toast('동기화 리셋됨 (기본 계산 사용)');
+      renderPanels();
+    });
+
+    elBtnPreset.addEventListener('click', ()=>{
+      const key = elPreset.value;
+      if(!key) return;
+      schedules = structuredClone(presets[key]||[]);
+      saveSchedules(schedules);
+      elJsonArea.value = JSON.stringify(schedules, null, 2);
+      toast('프리셋 적용됨');
+      renderPanels();
+    });
+
+    elBtnSaveJson.addEventListener('click', ()=>{
+      try{
+        const j = JSON.parse(elJsonArea.value||'[]');
+        if(!Array.isArray(j)) throw new Error('not array');
+        schedules = j;
+        saveSchedules(schedules);
+        toast('스케줄이 저장되었습니다.');
+        renderPanels();
+      }catch(e){ toast('JSON 형식이 올바르지 않습니다.'); }
+    });
+
+    elBtnCopyJson.addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(elJsonArea.value);
+        toast('클립보드에 복사됨');
+      }catch{ toast('복사 실패'); }
+    });
+
+    function escapeHTML(s){
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+
+    function msToHuman(ms){
+      const sec = Math.round(ms/1000);
+      if(sec < 60) return `${sec}초`;
+      const m = Math.floor(sec/60); const s = sec%60;
+      if(m < 60) return s? `${m}분 ${s}초` : `${m}분`;
+      const h = Math.floor(m/60); const mm = m%60;
+      return mm? `${h}시간 ${mm}분` : `${h}시간`;
+    }
+
+    // simple toast
+    let toastTimer=null; const toastDiv = document.createElement('div');
+    function ensureToast(){
+      toastDiv.style.position='fixed';toastDiv.style.left='50%';toastDiv.style.bottom='24px';toastDiv.style.transform='translateX(-50%)';toastDiv.style.zIndex='9999';
+      toastDiv.style.background='#0b1220';toastDiv.style.color='var(--text)';toastDiv.style.padding='10px 14px';toastDiv.style.border='1px solid var(--line)';toastDiv.style.borderRadius='10px';toastDiv.style.boxShadow='0 10px 30px rgba(0,0,0,.35)';
+      toastDiv.style.display='none';document.body.appendChild(toastDiv);
+    }
+    function toast(msg){
+      if(!toastDiv.parentNode) ensureToast();
+      toastDiv.textContent = msg; toastDiv.style.display='block';
+      clearTimeout(toastTimer); toastTimer = setTimeout(()=> toastDiv.style.display='none', 2500);
+    }
+
+    // init JSON area
+    elJsonArea.value = JSON.stringify(schedules, null, 2);
+
+    // status chip heartbeat
+    function setStatus(){
+      const { H, M } = getNow();
+      elStatusChip.textContent = `마비 ${fmtHM(H,M)}`;
+    }
+
+    // tick
+    function tick(){
+      setStatus();
+      renderPanels();
+    }
+
+    // start
+    tick();
+    setInterval(()=>{ setStatus(); }, 1000); // chip 초단위 갱신
+    setInterval(()=>{ renderPanels(); }, 5000);
+    setInterval(()=>{ renderTimeline(); }, 5000); // 패널 5초 갱신 (성능 절충)
+    setInterval(()=>{ positionNowLines(); }, 500); // 현재 시각 라인 이동 // 패널 5초 갱신 (성능 절충)
+
+  })();
+  </script>
+</body>
+</html>
