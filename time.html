@@ -143,7 +143,7 @@
     </section>
 
     <section class="card" style="margin-top:16px">
-      <h2>타임라인 뷰 (간트)</h2>
+      <h2>타임라인 뷰</h2>
       <div class="row" style="margin-bottom:8px">
         <label class="row"><input type="checkbox" id="favOnly"> 내가 지정한 알바만</label>
         <input id="filterText" placeholder="NPC/지역 검색" />
@@ -164,7 +164,7 @@
     </section>
 
     <p class="footer">
-      ⓘ 이 페이지는 공식 데이터가 아닌 <strong>사용자 편집 가능</strong> 스케줄을 기반으로 동작합니다. 서버/채널/이벤트에 따라 실제 시간은 다를 수 있어요.
+      ⓘ 이 페이지는 공식 페이지가 아닌, <strong>개인 만족용</strong> 페이지입니다..
     </p>
   </div>
 
@@ -217,7 +217,6 @@
     // ===== Schedules =====
     const defaultData = [
       // === KR 서버 표준 스케줄 (요약) ===
-      // 각 항목은 모집/보고 단계로 분리했습니다. (모집 구간 끝 → 보고 시작)
       // --- 티르 코네일 ---
       { name: "딜리스(힐러)", place: "티르 코네일", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
       { name: "데이안(일반)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
@@ -589,7 +588,7 @@
       }
       const realMs = Math.max(0, Math.floor(targetMs));
       const t = setTimeout(()=>{
-        notify('⏰ 알람', label);
+        notify('알람', label);
       }, realMs);
       timers.add(t);
       toast(`알람 설정됨 · ${msToHuman(realMs)} 후: ${label}`);
