@@ -48,7 +48,7 @@
     .hidden{display:none}
     details summary{cursor:pointer;color:#cbd5e1}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
-  .tl{overflow:auto}
+    .tl{overflow:auto}
     .tl-legend{display:flex;gap:8px;align-items:center;margin:6px 0}
     .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--line)}
     .swatch.recruit{background:#0c2e21}
@@ -70,8 +70,7 @@
         <div class="title">알바 타임보드</div>
         <span class="chip" id="statusChip">대기중</span>
       </div>
-      <div class="chips">
-      </div>
+      <div class="chips"></div>
     </header>
 
     <div class="grid">
@@ -136,6 +135,7 @@
             <th>시간대 (마비 시간)</th>
             <th class="nowrap">상태</th>
             <th class="nowrap">알람</th>
+            <th class="nowrap">연속</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -163,8 +163,14 @@
       </div>
     </section>
 
+    <section class="card" style="margin-top:16px">
+      <h2>연속 알람</h2>
+      <div class="help">구독한 알바 시작/종료 시각에 매 타임마다 자동으로 알람이 울립니다.</div>
+      <div id="subsList" class="list"></div>
+    </section>
+
     <p class="footer">
-      ⓘ 이 페이지는 공식 페이지가 아닌, <strong>개인 만족용</strong> 페이지입니다..
+      ⓘ 이 페이지는 공식 페이지가 아닌, <strong>개인 만족용</strong> 페이지입니다.
     </p>
   </div>
 
@@ -179,6 +185,10 @@
     const MS_PER_MABI_MIN = 1500;
     const MS_PER_MABI_HOUR = 60 * MS_PER_MABI_MIN; // 90,000
     const MS_PER_MABI_DAY = 24 * MS_PER_MABI_HOUR; // 2,160,000
+
+    // 타임라인 스케일
+    const TL_WIDTH = 960; // px
+    const SCALE = TL_WIDTH / (24*60);
 
     // 동기화 오프셋: now -> target Mabi HH:MM 으로 맞추는 실수용 오프셋(ms)
     let syncOffset = loadOffset(); // realNowMs - mabiMs(now)
@@ -216,69 +226,47 @@
 
     // ===== Schedules =====
     const defaultData = [
-      // === KR 서버 표준 스케줄 (요약) ===
-      // --- 티르 코네일 ---
-      { name: "딜리스(힐러)", place: "티르 코네일", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
-      { name: "데이안(일반)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "말콤(잡화점)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "피르아스(여관)", place: "티르 코네일", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "퍼거스(대장간)", place: "티르 코네일", windows: [ { start: "12:00", end: "13:00", note: "모집" }, { start: "13:00", end: "19:00", note: "보고" } ] },
-      { name: "케이틴(식료품점)", place: "티르 코네일", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-      { name: "엔델리온(성당)", place: "티르 코네일", windows: [ { start: "12:00", end: "16:00", note: "모집" }, { start: "16:00", end: "21:00", note: "보고" } ] },
-
-      // --- 던바튼 ---
-      { name: "마누스(힐러)", place: "던바튼", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
-      { name: "에반(모험가)", place: "던바튼", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "16:00", note: "보고" } ] },
-      { name: "발터(잡화점)", place: "던바튼", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "시몬(의류점)", place: "던바튼", windows: [ { start: "07:00", end: "12:00", note: "모집" }, { start: "12:00", end: "19:00", note: "보고" } ] },
-      { name: "스튜어트(도서관)", place: "던바튼", windows: [ { start: "09:00", end: "11:00", note: "모집" }, { start: "11:00", end: "19:00", note: "보고" } ] },
-      { name: "글리니스(식료품점)", place: "던바튼", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-      { name: "크리스텔(성당)", place: "던바튼", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-      { name: "아이라(서점)", place: "던바튼", windows: [ { start: "13:00", end: "15:00", note: "모집" }, { start: "15:00", end: "20:00", note: "보고" } ] },
-      { name: "네리스(무기)", place: "던바튼", windows: [ { start: "15:00", end: "17:00", note: "모집" }, { start: "17:00", end: "22:00", note: "보고" } ] },
-
-      // --- 카브 항구 ---
-      { name: "아스콘(등대)", place: "카브 항구", windows: [ { start: "16:00", end: "19:00", note: "모집" }, { start: "19:00", end: "22:00", note: "보고" } ] },
-
-      // --- 반호르 ---
-      { name: "아이데른(대장간)", place: "반호르", windows: [ { start: "07:00", end: "12:00", note: "모집" }, { start: "12:00", end: "19:00", note: "보고" } ] },
-      { name: "숀(채굴장)", place: "반호르", windows: [ { start: "10:00", end: "15:00", note: "모집" }, { start: "15:00", end: "23:00", note: "보고" } ] },
-      { name: "에일렌(대장간)", place: "반호르", windows: [ { start: "12:00", end: "13:00", note: "모집" }, { start: "13:00", end: "19:00", note: "보고" } ] },
-      { name: "컴건(성당)", place: "반호르", windows: [ { start: "12:00", end: "16:00", note: "모집" }, { start: "16:00", end: "21:00", note: "보고" } ] },
-
-      // --- 이멘 마하 ---
-      { name: "아그네스(힐러)", place: "이멘 마하", windows: [ { start: "06:00", end: "09:00", note: "모집" }, { start: "09:00", end: "15:00", note: "보고" } ] },
-      { name: "갈빈(잡화점)", place: "이멘 마하", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "엘레노아(의류점)", place: "이멘 마하", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "레리(인형공방)", place: "이멘 마하", windows: [ { start: "07:00", end: "16:00", note: "모집" }, { start: "16:00", end: "19:00", note: "보고" } ] },
-      { name: "델(꽃가게)", place: "이멘 마하", windows: [ { start: "08:00", end: "10:00", note: "모집" }, { start: "10:00", end: "16:00", note: "보고" } ] },
-      { name: "네일(음악상점)", place: "이멘 마하", windows: [ { start: "10:00", end: "12:00", note: "모집" }, { start: "12:00", end: "15:00", note: "보고" } ] },
-      { name: "프레이저(식료품점)", place: "이멘 마하", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-      { name: "제임스(성당)", place: "이멘 마하", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-      { name: "오슬라(무기점)", place: "이멘 마하", windows: [ { start: "15:00", end: "17:00", note: "모집" }, { start: "17:00", end: "22:00", note: "보고" } ] },
-
-      // --- 탈틴 ---
-      { name: "피에릭(잡화점)", place: "탈틴", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "브렌다(의류점)", place: "탈틴", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "19:00", note: "보고" } ] },
-      { name: "아이바(연금술사의 집)", place: "탈틴", windows: [ { start: "10:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-      { name: "콜헨(성당)", place: "탈틴", windows: [ { start: "12:00", end: "14:00", note: "모집" }, { start: "14:00", end: "21:00", note: "보고" } ] },
-
-      // --- 타라 ---
-      { name: "한스(화가)", place: "타라", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "16:00", note: "보고" } ] },
-      { name: "키이스(은행)", place: "타라", windows: [ { start: "07:00", end: "09:00", note: "모집" }, { start: "09:00", end: "23:00", note: "보고" } ] },
-      { name: "코렌틴(법황청)", place: "타라", windows: [ { start: "09:00", end: "14:00", note: "모집" }, { start: "14:00", end: "20:00", note: "보고" } ] },
-      { name: "리리스(마창대회장)", place: "타라", windows: [ { start: "10:00", end: "15:00", note: "모집" }, { start: "15:00", end: "21:00", note: "보고" } ] }
+      {"name":"딜리스(힐러)","place":"티르 코네일","windows":[{"start":"06:00","end":"09:00","note":"모집"},{"start":"09:00","end":"15:00","note":"보고"}]},
+      {"name":"데이안(일반)","place":"티르 코네일","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"말콤(잡화점)","place":"티르 코네일","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"피르아스(여관)","place":"티르 코네일","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"퍼거스(대장간)","place":"티르 코네일","windows":[{"start":"12:00","end":"13:00","note":"모집"},{"start":"13:00","end":"19:00","note":"보고"}]},
+      {"name":"케이틴(식료품점)","place":"티르 코네일","windows":[{"start":"12:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"엔델리온(성당)","place":"티르 코네일","windows":[{"start":"12:00","end":"16:00","note":"모집"},{"start":"16:00","end":"21:00","note":"보고"}]},
+      {"name":"마누스(힐러)","place":"던바튼","windows":[{"start":"06:00","end":"09:00","note":"모집"},{"start":"09:00","end":"15:00","note":"보고"}]},
+      {"name":"에반(모험가)","place":"던바튼","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"16:00","note":"보고"}]},
+      {"name":"발터(잡화점)","place":"던바튼","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"시몬(의류점)","place":"던바튼","windows":[{"start":"07:00","end":"12:00","note":"모집"},{"start":"12:00","end":"19:00","note":"보고"}]},
+      {"name":"스튜어트(도서관)","place":"던바튼","windows":[{"start":"09:00","end":"11:00","note":"모집"},{"start":"11:00","end":"19:00","note":"보고"}]},
+      {"name":"글리니스(식료품점)","place":"던바튼","windows":[{"start":"12:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"크리스텔(성당)","place":"던바튼","windows":[{"start":"12:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"아이라(서점)","place":"던바튼","windows":[{"start":"13:00","end":"15:00","note":"모집"},{"start":"15:00","end":"20:00","note":"보고"}]},
+      {"name":"네리스(무기)","place":"던바튼","windows":[{"start":"15:00","end":"17:00","note":"모집"},{"start":"17:00","end":"22:00","note":"보고"}]},
+      {"name":"아스콘(등대)","place":"카브 항구","windows":[{"start":"16:00","end":"19:00","note":"모집"},{"start":"19:00","end":"22:00","note":"보고"}]},
+      {"name":"아이데른(대장간)","place":"반호르","windows":[{"start":"07:00","end":"12:00","note":"모집"},{"start":"12:00","end":"19:00","note":"보고"}]},
+      {"name":"숀(채굴장)","place":"반호르","windows":[{"start":"10:00","end":"15:00","note":"모집"},{"start":"15:00","end":"23:00","note":"보고"}]},
+      {"name":"에일렌(대장간)","place":"반호르","windows":[{"start":"12:00","end":"13:00","note":"모집"},{"start":"13:00","end":"19:00","note":"보고"}]},
+      {"name":"컴건(성당)","place":"반호르","windows":[{"start":"12:00","end":"16:00","note":"모집"},{"start":"16:00","end":"21:00","note":"보고"}]},
+      {"name":"아그네스(힐러)","place":"이멘 마하","windows":[{"start":"06:00","end":"09:00","note":"모집"},{"start":"09:00","end":"15:00","note":"보고"}]},
+      {"name":"갈빈(잡화점)","place":"이멘 마하","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"엘레노아(의류점)","place":"이멘 마하","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"레리(인형공방)","place":"이멘 마하","windows":[{"start":"07:00","end":"16:00","note":"모집"},{"start":"16:00","end":"19:00","note":"보고"}]},
+      {"name":"델(꽃가게)","place":"이멘 마하","windows":[{"start":"08:00","end":"10:00","note":"모집"},{"start":"10:00","end":"16:00","note":"보고"}]},
+      {"name":"네일(음악상점)","place":"이멘 마하","windows":[{"start":"10:00","end":"12:00","note":"모집"},{"start":"12:00","end":"15:00","note":"보고"}]},
+      {"name":"프레이저(식료품점)","place":"이멘 마하","windows":[{"start":"12:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"제임스(성당)","place":"이멘 마하","windows":[{"start":"12:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"오슬라(무기점)","place":"이멘 마하","windows":[{"start":"15:00","end":"17:00","note":"모집"},{"start":"17:00","end":"22:00","note":"보고"}]},
+      {"name":"피에릭(잡화점)","place":"탈틴","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"브렌다(의류점)","place":"탈틴","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"19:00","note":"보고"}]},
+      {"name":"아이바(연금술사의 집)","place":"탈틴","windows":[{"start":"10:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"콜헨(성당)","place":"탈틴","windows":[{"start":"12:00","end":"14:00","note":"모집"},{"start":"14:00","end":"21:00","note":"보고"}]},
+      {"name":"한스(화가)","place":"타라","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"16:00","note":"보고"}]},
+      {"name":"키이스(은행)","place":"타라","windows":[{"start":"07:00","end":"09:00","note":"모집"},{"start":"09:00","end":"23:00","note":"보고"}]},
+      {"name":"코렌틴(법황청)","place":"타라","windows":[{"start":"09:00","end":"14:00","note":"모집"},{"start":"14:00","end":"20:00","note":"보고"}]},
+      {"name":"리리스(마창대회장)","place":"타라","windows":[{"start":"10:00","end":"15:00","note":"모집"},{"start":"15:00","end":"21:00","note":"보고"}]}
     ];
 
-    const presets = {
-      kr: structuredClone(defaultData),
-      sample: [
-        { name: "딜리스(힐러)", place: "티르 코네일", windows: [ { start: "08:00", end: "12:00", note: "예시: 치료부" }, { start: "18:00", end: "21:00", note: "예시: 보충" } ] },
-        { name: "말콤(잡화점)", place: "티르 코네일", windows: [ { start: "09:00", end: "11:00", note: "예시" }, { start: "15:00", end: "17:30", note: "예시" } ] },
-        { name: "카이틴(식당)", place: "티르 코네일", windows: [ { start: "12:00", end: "14:00", note: "예시: 주방" }, { start: "20:00", end: "23:00", note: "예시" } ] }
-      ],
-      empty: []
-    };
+    const presets = { kr: structuredClone(defaultData), empty: [] };
 
     function loadSchedules(){
       try {
@@ -297,6 +285,10 @@
     }
 
     let schedules = loadSchedules();
+    if(!Array.isArray(schedules) || schedules.length === 0){
+      schedules = structuredClone(defaultData);
+      saveSchedules(schedules);
+    }
 
     // ===== UI refs =====
     const elNowReal = document.getElementById('nowReal');
@@ -320,12 +312,19 @@
     const elTlHours = document.getElementById('tlHours');
     const elFavOnly = document.getElementById('favOnly');
     const elFilterText = document.getElementById('filterText');
+    const elSubsList = document.getElementById('subsList');
+
+    // ===== Favorites (즐겨찾기) =====
+    function favKey(npc){ return `${npc.name}|${npc.place||''}`; }
+    function loadFavs(){ try { return JSON.parse(localStorage.getItem('mabi-favs')||'[]'); } catch(e) { return []; } }
+    function saveFavs(arr){ localStorage.setItem('mabi-favs', JSON.stringify(arr)); }
+    let favs = loadFavs();
 
     // ===== Notifications =====
     chkNotify.addEventListener('change', async () => {
       if(chkNotify.checked && 'Notification' in window){
         if(Notification.permission === 'default'){
-          try{ await Notification.requestPermission(); }catch{}
+          try{ await Notification.requestPermission(); }catch(e){}
         }
       }
     });
@@ -334,13 +333,13 @@
       let shown=false;
       if(chkNotify && chkNotify.checked && 'Notification' in window){
         if(Notification.permission === 'default'){
-          try{ Notification.requestPermission(); }catch{}
+          try{ Notification.requestPermission(); }catch(e){}
         }
         if(Notification.permission === 'granted'){
-          try{ new Notification(title, { body }); shown=true; }catch{}
+          try{ new Notification(title, { body }); shown=true; }catch(e){}
         }
       }
-      if(chkSound && chkSound.checked){ try{ bell.currentTime = 0; bell.play(); }catch{} }
+      if(chkSound && chkSound.checked){ try{ bell.currentTime = 0; bell.play(); }catch(e){} }
       if(!shown){ toast(`${title} · ${body||''}`.trim()); }
     }
 
@@ -373,27 +372,27 @@
         upcoming.sort((a,b)=>a.delta-b.delta);
         const soon = upcoming[0];
         const tr = document.createElement('tr');
+        const subStartOn = hasSub(idx,'start');
+        const subEndOn = hasSub(idx,'end');
         tr.innerHTML = `
           <td><div class="name">${escapeHTML(npc.name)}</div></td>
           <td>${escapeHTML(npc.place||'')}</td>
-          <td>${npc.windows.map(w=>`<span class="mono">${w.start}–${w.end}</span>${w.note?` <span class="label">(${escapeHTML(w.note)})</span>`:''}`).join('<br>')}</td>
+          <td>${npc.windows.map(w=>`<span class="mono">${w.start}–${w.end}</span>${w.note?` <span class=\"label\">(${escapeHTML(w.note)})</span>`:''}`).join('<br>')}</td>
           <td class="nowrap">${activeWindows.length?'<span class="badge" style="border-color:transparent;background:#0c2e21;color:#34d399">진행중</span>': soon? `<span class="badge">${msToHuman(soon.delta)} 후</span>` : '<span class="badge">—</span>'}</td>
           <td class="nowrap">
             ${activeWindows.length? '<button class="ghost" data-alarm="now" data-idx="'+idx+'">종료 알람</button>' : soon? '<button class="ghost" data-alarm="next" data-idx="'+idx+'">시작 알람</button>' : ''}
+          </td>
+          <td class="nowrap">
+            <button class="ghost" data-subscribe-cycle data-idx="${idx}">
+              ${ (subStartOn||subEndOn) ? '해제' : '구독' }
+            </button>
           </td>
         `;
         elTblAll.appendChild(tr);
       });
     }
 
-    // ===== Favorites & Timeline =====
-    const TL_WIDTH = 960; // px
-    const SCALE = TL_WIDTH / (24*60);
-    function favKey(npc){ return `${npc.name}|${npc.place||''}`; }
-    function loadFavs(){ try{ return JSON.parse(localStorage.getItem('mabi-favs')||'[]'); }catch{ return []; } }
-    function saveFavs(arr){ localStorage.setItem('mabi-favs', JSON.stringify(arr)); }
-    let favs = loadFavs();
-
+    // ===== Timeline helpers =====
     function renderHours(){
       elTlHours.innerHTML = '';
       for(let h=0; h<24; h++){
@@ -407,7 +406,6 @@
       elTlHours.style.backgroundImage = 'repeating-linear-gradient(to right, rgba(255,255,255,.04) 0 1px, transparent 1px 40px)';
       elTlHours.style.border='1px solid var(--line)'; elTlHours.style.borderRadius='8px';
     }
-
     function ensureTrackNowLines(){
       const tracks = document.querySelectorAll('.track');
       tracks.forEach(t=>{
@@ -416,7 +414,6 @@
         }
       });
     }
-
     function positionNowLines(){
       const { mabiMins } = getNow();
       const left = (mabiMins * SCALE) + 'px';
@@ -461,7 +458,6 @@
           track.appendChild(bar);
         });
       });
-      // ensure per-track now lines and position them
       ensureTrackNowLines();
       positionNowLines();
     }
@@ -470,7 +466,7 @@
     if(elFilterText) elFilterText.addEventListener('input', ()=>{ renderTimeline(); });
 
     // prime audio on first user interaction
-    document.addEventListener('click', ()=>{ try{ bell.play().then(()=>{ bell.pause(); bell.currentTime=0; }).catch(()=>{}); }catch{} }, { once:true });
+    document.addEventListener('click', ()=>{ try{ bell.play().then(()=>{ bell.pause(); bell.currentTime=0; }).catch(()=>{}); }catch(e){} }, { once:true });
     document.addEventListener('click', (e)=>{
       const b = e.target.closest('button[data-fav]');
       if(!b) return;
@@ -564,8 +560,71 @@
       positionNowLines();
     }
 
-    // ===== Alarms =====
+    // ===== Subscription (연속 알람) =====
     const timers = new Set();
+    function subStoreKey(){ return 'mabi-subscriptions'; }
+    function loadSubs(){ try{ return JSON.parse(localStorage.getItem(subStoreKey())||'[]'); }catch(e){ return []; } }
+    function saveSubs(arr){ localStorage.setItem(subStoreKey(), JSON.stringify(arr)); }
+    let subs = loadSubs(); // [{idx, kind:'start'|'end'}]
+    const subTimers = new Map(); // key -> timeoutId
+    // ===== Subscription mode storage =====
+    function modeStoreKey(){ return 'mabi-sub-modes'; }
+    function loadModes(){ try{ return JSON.parse(localStorage.getItem(modeStoreKey())||'{}'); }catch(e){ return {}; } }
+    function saveModes(obj){ localStorage.setItem(modeStoreKey(), JSON.stringify(obj)); }
+    let subModes = loadModes(); // { idx: 'start'|'end' }
+    function getMode(idx){ return subModes[String(idx)] || 'start'; }
+    function setMode(idx, mode){ subModes[String(idx)] = mode; saveModes(subModes); }
+    function subKey(idx, kind){ return `${idx}:${kind}`; }
+    function hasSub(idx, kind){ return subs.some(s=>s.idx===idx && s.kind===kind); }
+    function addSub(idx, kind){ if(hasSub(idx,kind)) return; subs.push({idx,kind}); saveSubs(subs); scheduleSub(idx,kind); renderSubs(); buildAllRows(); toast('연속 알람 구독됨'); }
+    function removeSub(idx, kind){ subs = subs.filter(s=>!(s.idx===idx && s.kind===kind)); saveSubs(subs); const k=subKey(idx,kind); const t=subTimers.get(k); if(t){ clearTimeout(t); subTimers.delete(k);} renderSubs(); buildAllRows(); toast('연속 알람 해제됨'); }
+    function scheduleSub(idx, kind){
+      const npc = schedules[idx]; if(!npc) return;
+      const { mabiMins } = getNow();
+      let bestDelta = Infinity; let label='';
+      npc.windows.forEach(w=>{
+        const s=parseHM(w.start); const e=parseHM(w.end); if(!s||!e) return;
+        if(kind==='start'){ const d=nextDeltaMs(mabiMins, s.mins); if(d<bestDelta){ bestDelta=d; label=`${npc.name} 시작 (${w.start})`; } }
+        else { const d=nextDeltaMs(mabiMins, e.mins); if(d<bestDelta){ bestDelta=d; label=`${npc.name} 종료 (${w.end})`; } }
+      });
+      if(bestDelta===Infinity) return;
+      const k=subKey(idx,kind);
+      const t=setTimeout(()=>{ notify('⏰ 연속 알람', label); scheduleSub(idx,kind); }, Math.max(0, Math.floor(bestDelta)));
+      const prev=subTimers.get(k); if(prev) clearTimeout(prev);
+      subTimers.set(k,t);
+    }
+    function scheduleAllSubs(){ subs.forEach(s=> scheduleSub(s.idx, s.kind)); }
+    function renderSubs(){
+      if(!elSubsList) return; elSubsList.innerHTML = '';
+      if(subs.length===0){ elSubsList.innerHTML = '<div class="item"><div>구독 중인 연속 알람이 없습니다.</div></div>'; return; }
+      subs.forEach(s=>{
+        const npc=schedules[s.idx]; if(!npc) return;
+        const div=document.createElement('div');
+        div.className='item';
+        div.innerHTML = `<div><div class=\"name\">${escapeHTML(npc.name)}</div><div class=\"help\">${escapeHTML(npc.place||'')} · ${s.kind==='start'?'시작':'종료'} 구독</div></div>
+                         <div class=\"row\"><button class=\"ghost\" data-unsub-idx=\"${s.idx}\" data-unsub-kind=\"${s.kind}\">해제</button></div>`;
+        elSubsList.appendChild(div);
+      });
+    }
+
+    // Click handler: single toggle button (label: 구독 ↔ 해제)
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-subscribe-cycle]');
+      if(!btn) return;
+      const idx = Number(btn.getAttribute('data-idx'));
+      const hasS = hasSub(idx,'start');
+      const hasE = hasSub(idx,'end');
+      if(!hasS && !hasE){
+        const mode = getMode(idx) || 'start';
+        addSub(idx, mode); // 구독
+      } else {
+        // 해제: 활성 구독 모두 해제
+        if(hasS) removeSub(idx,'start');
+        if(hasE) removeSub(idx,'end');
+      }
+      buildAllRows();
+    });
+
     function clearTimers(){ for(const t of timers){ clearTimeout(t); timers.delete(t);} }
 
     function scheduleAlarm(kind, npcIdx, start, end){
@@ -587,9 +646,7 @@
         label = `${npc.name} 알바 종료 (${end})`;
       }
       const realMs = Math.max(0, Math.floor(targetMs));
-      const t = setTimeout(()=>{
-        notify('알람', label);
-      }, realMs);
+      const t = setTimeout(()=>{ notify('알람', label); }, realMs);
       timers.add(t);
       toast(`알람 설정됨 · ${msToHuman(realMs)} 후: ${label}`);
     }
@@ -620,11 +677,7 @@
       const v = parseHM(elSyncTime.value);
       if(!v){ toast('HH:MM 형태로 입력하세요.'); return; }
       const now = Date.now();
-      // now - offset -> mabiElapsedMs ≡ v.mins
-      // (now - offset) % MS_PER_MABI_DAY = v.mins * 1500
-      // offset = now - (v.mins*1500) (mod day)
       const desired = v.mins * MS_PER_MABI_MIN;
-      // 현재 remainder
       const remainder = (now - syncOffset) % MS_PER_MABI_DAY;
       const delta = remainder - desired; // 우리가 빼야할 오차
       syncOffset = syncOffset + delta; // 보정
@@ -647,6 +700,7 @@
       elJsonArea.value = JSON.stringify(schedules, null, 2);
       toast('프리셋 적용됨');
       renderPanels();
+      scheduleAllSubs();
     });
 
     elBtnSaveJson.addEventListener('click', ()=>{
@@ -657,6 +711,7 @@
         saveSchedules(schedules);
         toast('스케줄이 저장되었습니다.');
         renderPanels();
+        scheduleAllSubs();
       }catch(e){ toast('JSON 형식이 올바르지 않습니다.'); }
     });
 
@@ -664,7 +719,7 @@
       try{
         await navigator.clipboard.writeText(elJsonArea.value);
         toast('클립보드에 복사됨');
-      }catch{ toast('복사 실패'); }
+      }catch(e){ toast('복사 실패'); }
     });
 
     function escapeHTML(s){
@@ -708,12 +763,28 @@
       renderPanels();
     }
 
+    // ===== Tiny smoke tests =====
+    function runTests(){
+      try {
+        console.assert(parseHM('09:30').mins === 570, 'parseHM 09:30 -> 570');
+        console.assert(isActive(600, 500, 700) === true, 'isActive simple in-range');
+        console.assert(isActive(10, 1200, 60) === true, 'isActive wrap-around in-range');
+        console.assert(isActive(100, 1200, 60) === false, 'isActive wrap-around out-of-range');
+        const d = nextDeltaMs(100, 110); console.assert(d > 0 && d <= 10*1500, 'nextDeltaMs small delta');
+        console.log('✅ Smoke tests passed');
+      } catch(e) {
+        console.error('❌ Smoke tests failed', e);
+      }
+    }
+
     // start
     tick();
+    runTests();
     setInterval(()=>{ setStatus(); }, 1000); // chip 초단위 갱신
     setInterval(()=>{ renderPanels(); }, 5000);
     setInterval(()=>{ renderTimeline(); }, 5000); // 패널 5초 갱신 (성능 절충)
-    setInterval(()=>{ positionNowLines(); }, 500); // 현재 시각 라인 이동 // 패널 5초 갱신 (성능 절충)
+    setInterval(()=>{ positionNowLines(); }, 500); // 현재 시각 라인 이동
+    scheduleAllSubs();
 
   })();
   </script>
